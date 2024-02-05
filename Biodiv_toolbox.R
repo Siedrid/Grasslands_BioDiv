@@ -104,6 +104,129 @@ load_band <- function(band, acq, m){
   return(rast_m)
 }
 
+# Preprocessing Predictor and Response Variables ----
+
+# update plot names
+plot_names_2022 <- function(spec_df){
+  plot_names <- c("Obernschreez_68_Nord", "Obernschreez_68_Süd", "Obernschreez_726_West", "Obernschreez_726_Ost","Obernschreez_734", 
+                  "Nördlicher_Deuterweg_1", "Nördlicher_Deuterweg_2","Nördlicher_Deuterweg_3","Nördlicher_Deuterweg_4","Nördlicher_Deuterweg_5","Nördlicher_Deuterweg_6",
+                  "Südlich_Deuterweg_1","Südlich_Deuterweg_2","Südlich_Deuterweg_3","Südlich_Deuterweg_4",
+                  "Südlich_Deuterweg_5","Südlich_Deuterweg_6","Südlich_Deuterweg_7",
+                  "Südlich_Bauhof_1", "Südlich_Bauhof_2","Südlich_Bauhof_3","Südlich_Bauhof_4",
+                  "Gubitzmoos_1", "Gubitzmoos_2",
+                  "Deuter",
+                  "Schobertsberg_1", "Schobertsberg_2","Schobertsberg_3","Schobertsberg_4","Schobertsberg_5")
+  spec_df$plot_names <- plot_names
+  return(spec_df)
+}
+
+
+get_diversity <- function(spec_path, yr){
+  # Function for 2022 and 2023 Data (different formats are considered)
+  
+  if (yr == 2022){
+    spec_2022 <- read.csv(spec_path, header = T, sep = ';')
+    spec_2022 <- plot_names_2022(spec_2022)
+    
+    colnames(spec_2022)[3] <- "Total_cover"
+    spec_cols <- grep('\\.', colnames(spec_2022))
+    spec_2022[is.na(spec_2022)] <- 0
+    
+    shannon_div <- diversity(as.matrix(spec_2022[spec_cols]), index = "shannon")
+    simpson_div <- diversity(as.matrix(spec_2022[spec_cols]), index = "simpson")
+    spec <- specnumber(as.matrix(spec_2022[spec_cols]))
+    
+    div_df <- data.frame(plot_names = spec_2022$plot_names)
+    div_df$shannon <- shannon_div
+    div_df$simpson <- simpson_div
+    div_df$specn <- spec
+  }
+  if (yr == 2023){
+    plotIDs <- excel_sheets(spec_path)
+    plotIDs <- plotIDs[-grep("Tabelle", plotIDs)] # in case there is still an empty table in the excel wb
+    
+    div_df <- data.frame(plot_names = plotIDs)
+    shannon <- c()
+    simpson <- c()
+    n <- c()
+    i = 1
+    for (id in plotIDs){
+      spec <- read_excel(path = spec_path, sheet = id) # sheet=
+      colnames(spec) <- c("Species", "Cover") 
+      spec[grep("<1", spec$Cover),2] <- "0.5"
+      
+      spec$Cover <- as.numeric(spec$Cover)
+      spec <- na.omit(spec)
+      
+      shannon[i] <- diversity(spec$Cover, index = "shannon")
+      simpson[i] <- diversity(spec$Cover, index = "simpson")
+      n[i] <- length(spec$Cover)
+      i <- i + 1
+    }
+    div_df$shannon <- shannon
+    div_df$simpson <- simpson
+    div_df$specn <- n
+    
+    div_df$plot_names[grep("734", div_df$plot_names)] <- "734-1"
+  }
+  return(div_df)
+}
+
+
+wb_to_df <- function(wb_path){
+  
+  # load Workbook
+  wb <- loadWorkbook(wb_path)
+  dates <- as.Date(getSheetNames(wb_path), "%Y-%m-%d")
+  sort_dates <- sort(dates)
+  
+  # initialize array
+  df1 <- read.xlsx(wb, sheet = toString(sort_dates[1]))
+  df1 <- df1[-2]
+  df1$dat <- rep(sort_dates[1], nrow(df1))
+  df2 <- read.xlsx(wb, sheet = toString(sort_dates[2]))
+  df2 <- df2[-2]
+  df2$dat <- rep(sort_dates[2], nrow(df2))
+  
+  a <- rbind(df1, df2)
+  
+  # stack Sentinel retrieved reflectances in increasing date order
+  for (d in 3:length(sort_dates)){
+    df1 <- read.xlsx(wb, sheet=toString(sort_dates[d]))
+    df1 <- df1[-2]
+    df1$dat <- rep(sort_dates[d], nrow(df1))
+    
+    a <- rbind(a, df1)
+  }
+  return(a)
+}
+
+interpolate.ts <- function(df, plot.column){
+  # rename plot column
+  colnames(df)[colnames(df) == plot.column] <- "plot_names"
+  int.ts <- df %>% group_by(plot_names) %>% 
+    mutate_at(bands, ~ zoo::na.approx(., na.rm = FALSE))
+  return(int.ts)
+}
+
+comp_max <- function(df, date.column){
+  # rename date column
+  colnames(df)[colnames(df) == date.column] <- "dat"
+  # Calculate maximum reflectance per band, plot and month
+  max_df <- df %>%
+    group_by(plot_names, month = format(dat, "%Y-%m")) %>% 
+    summarize_if(is.numeric, max, na.rm = TRUE)  
+  return(max_df)
+}
+
+# Pivot the data, needed for RF
+pivot.df <- function(df){
+  max_df_piv <- df %>%
+    mutate(variable = month) %>%
+    select(-month) %>%
+    pivot_wider(names_from = variable, values_from = c(B11,B12,B2,B3,B4,B5,B6,B7,B8, B8A))
+  return(max_df_piv)
+}
 
 # Biodiversity RF ----
 
@@ -195,7 +318,35 @@ RF_predictors <- function(data_frame, m_lst){
   return(data_frame.spring)
 }
 
+# get months composite, from folder, specify months to be used in raster prediction
+get_monthly_composite <- function(path, ms){
+  idx.lst <- c()
+  for (m in ms){
+    idx <- grep(m, list.files(path))
+    idx.lst <- append(idx.lst, idx)
+  }
+  fls <- list.files(path)[idx.lst]
+  return(fls)
+}
 
+# stack input rasters to be usable as input for spatial RF
+stack_S2_months <- function(fls, path, ms, filename){
+  max_comp <- list()
+  setwd(path)
+  for (i in 1:length(fls)){
+    date.str <- str_split(fls[i],'-')[[1]][3] %>% str_split(., '.tif')
+    date.str <- date.str[[1]][1] %>% gsub("_", "-", .)
+    rst <- terra::rast(fls[i])
+    names(rst) <- paste0(bands, "_", date.str)
+    max_comp[[i]] <- rst
+  }
+  max_comp.stack.terra <- terra::rast(max_comp)
+  writeRaster(max_comp.stack.terra, filename)
+  #max_comp.brick <- brick(max_comp.stack.terra) # convert terra SpatRaster to raster's brick object
+  max.brick <- brick(filename)
+  
+  return(max.brick)
+}
 # write RF results to csv
 write.RF <- function(pred, idx, forest, s, csv.path){
   
@@ -206,7 +357,7 @@ write.RF <- function(pred, idx, forest, s, csv.path){
   }else{
     df <- read.csv(csv.path) # open exisiting csv
   }
-  
+  RFImp <- varImp(forest, scale = F)
   r2 <- round(forest$results[forest$results$mtry == as.numeric(forest$bestTune),]$Rsquared,3)
   rmse <- round(forest$results[forest$results$mtry == as.numeric(forest$bestTune),]$RMSE,3)
   sd <- round(forest$results[forest$results$mtry == as.numeric(forest$bestTune),]$RsquaredSD,3)
@@ -220,3 +371,35 @@ write.RF <- function(pred, idx, forest, s, csv.path){
   write.csv(df, csv.path, row.names = F)
   return(df)
 }
+
+# aggregate according to band and month/year 
+plot.varimp <- function(forest, write = F, version){
+  
+  RFImp <- varImp(forest, scale = F)
+  imp.df <- RFImp$importance
+  
+  imp.sep <- imp.df %>% rownames_to_column(var = "band.date") %>% 
+    separate(band.date, into = c("Band", "Year", "Month"), sep = "_|\\.")
+  
+  par(bg = "white")
+  top20 <- plot(RFImp, top = 20)
+  
+  band.plot <- imp.sep %>% group_by(Band) %>% 
+    ggplot(aes(x=Band, y=Overall))+
+    geom_bar(stat = "identity", show.legend = F)
+  
+  year.plot <- imp.sep %>% group_by(Year) %>% 
+    ggplot(aes(x=Year, y=Overall))+
+    geom_bar(stat = "identity", show.legend = F)
+  
+  month.plot <- imp.sep %>% group_by(Month) %>% 
+    ggplot(aes(x=Month, y=Overall))+
+    geom_bar(stat = "identity", show.legend = F)
+  
+  gg <- ggarrange(band.plot, year.plot,
+                  top20, month.plot, ncol = 2, nrow = 2, labels = c("A", "B", "C", "D"))
+  print(gg)
+  if (write == T){
+    ggsave(paste0("E:/Grasslands_BioDiv/Out/RF_Results/predictor_importance-v", version, ".png"), plot = gg)
+  }
+} 
