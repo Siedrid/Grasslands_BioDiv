@@ -117,3 +117,61 @@ ggarrange(specn,
           labels = 'A')
 dev.off()
 
+# complete Ammer Data 13.02.----
+# only complete months as predictor
+s <- 5 
+predictors <- gsub("-", ".", m.RF) %>% gsub("2019", "2022", .) %>% gsub("2020", "2023", .)
+data_frame.april <- RF_predictors(data_frame, predictors)
+colnames(data_frame.april) <- gsub("2022", "2019", colnames(data_frame.april)) %>% gsub("2023", "2020", .)
+rf_data <- preprocess_rf_data(data_frame.april, div_df, "shannon")
+train_index <- get_train_index(rf_data, s)
+forest.april <- RF(rf_data, train_index, s)
+print(forest.april)
+summarize.RF(forest.april, div_df, train_index, "specn")
+write.RF("complete Ammer months", "specn", forest.april, s, csv.path)
+
+# predict for Ammer Data
+ammer.divdf <- read.csv("E:/Grasslands_BioDiv/Data/Field_Data/Biodiv-indices_Ammer.csv")
+ammer.prediction <- predict(forest.april, newdata = data.frame(max_df_piv)) %>% data.frame()
+ammer.prediction$plot_names <- max_df_piv$plot_names
+pred.df <- merge(ammer.prediction, pred.df, by = "plot_names")
+
+colnames(pred.df)[2] <- "shannon.prediction"
+
+# plot results
+limx <- c(min(pred.df$specn), max(pred.df$specn))
+spec <- ggplot(data = pred.df, aes(x = specn, y = specn.prediction))+
+  geom_point()+
+  geom_abline(slope = 1)+
+  xlim(limx)+
+  ylim(limx)
+  
+limx <- c(min(pred.df$shannon), max(pred.df$shannon)+0.5)
+shannon <- ggplot(data = pred.df, aes(x = shannon, y = shannon.prediction))+
+  geom_point()+
+  geom_abline(slope = 1)+
+  xlim(limx)+
+  ylim(limx)
+png("E:/Grasslands_BioDiv/Out/RF_Results/Ammer_RF_all_months.png")
+ggarrange(spec, shannon, nrow = 2)
+dev.off()
+
+# Franken with Days Since Last Cut ----
+
+df <- read.csv("E:/Grasslands_BioDiv/Data/Field_Data/DaySinceLastCut/SUSALPS_BT_2022-23_Refl_Plus_DaysSince.csv")
+df <- df[, 3:ncol(df)]
+int.ts <- interpolate.ts(df, plot.column = "plot_names")
+int.ts$dat <- as.Date(int.ts$dat, "%Y-%m-%d")
+int.ts <- na.omit(int.ts)
+
+last.cut.df <- comp_max_days_since(int.ts, date.column = "dat")
+m <- unique(last.cut.df$month)
+#df.season <- last.cut.df[last.cut.df$month %in% m[1:16],] # filter months before start of season
+df <- last.cut.df %>% select(-dat, -date_DOY)
+
+df.piv <- pivot.df(df, days_since = T)
+df.piv <- df.piv[-grep("alternative",df.piv$plot_names),]
+df.season <- RF_predictors(df.piv, c("04", "05", "06", "07", "08", "09", "10"))
+
+# April May 2023 fehlen bei vielen sites, durch days since verloren gegangen?
+

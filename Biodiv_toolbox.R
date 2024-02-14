@@ -11,7 +11,8 @@ library(ggplot2)
 library(terra)
 library(stringr)
 library(dplyr)
-
+library(tidyr)
+bands <- c("B2", "B3", "B4", "B5", "B6", "B7", "B8", "B8A", "B11", "B12") # Sentinel-2 Bands
 
 get_study_area <- function(){
   
@@ -219,12 +220,34 @@ comp_max <- function(df, date.column){
   return(max_df)
 }
 
+# return maximum days since last cut per month
+comp_max_days_since <- function(df, date.column){
+  # rename date column
+  colnames(df)[colnames(df) == date.column] <- "dat"
+  df.sub<- subset(df, days_since != 255) %>% subset(., days_since != 254) %>% subset(., !is.na(days_since))
+  # Calculate maximum reflectance per band, plot and month
+  max_df <- df.sub %>%
+    group_by(plot_names, month = format(dat, "%Y-%m")) %>% 
+    slice(which.max(days_since))  
+  
+  # remove masked rows (255 or 254 --> before start of season)
+  return(max_df)
+}
+
 # Pivot the data, needed for RF
-pivot.df <- function(df){
-  max_df_piv <- df %>%
-    mutate(variable = month) %>%
-    select(-month) %>%
-    pivot_wider(names_from = variable, values_from = c(B11,B12,B2,B3,B4,B5,B6,B7,B8, B8A))
+pivot.df <- function(df, days_since_cut = F){
+  df <- ungroup(df)
+    if (days_since_cut){
+      max_df_piv <- df  %>% 
+        mutate(variable = month) %>%
+        select(-month) %>%
+        pivot_wider(names_from = variable, values_from = c(B11,B12,B2,B3,B4,B5,B6,B7,B8, B8A, days_since))
+    }else{
+      max_df_piv <- df %>%
+        mutate(variable = month) %>%
+        select(-month) %>%
+        pivot_wider(names_from = variable, values_from = c(B11,B12,B2,B3,B4,B5,B6,B7,B8, B8A))
+    }
   return(max_df_piv)
 }
 
