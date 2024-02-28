@@ -1,7 +1,7 @@
 # All Functions for Biodiversity Random Forest Implementation
 
 # get Reflectances ----
-
+# check
 setwd("E:/Grasslands_BioDiv/Data/Field_Data")
 library(readxl)
 library(openxlsx)
