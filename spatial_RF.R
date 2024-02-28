@@ -81,3 +81,17 @@ max_comp.brick <- brick(max_comp.stack.terra) # convert terra SpatRaster to rast
 names(max_comp.brick)
 s2_pred <- predict(max_comp.brick, model = forest, na.rm = T)
 writeRaster(s2_pred, paste0(hd, ":/Grasslands_BioDiv/Data/SpatialRF_Data/S2_spec_prediction_month90.grd"))
+
+# mask with Copernicus Grasslands Layer
+
+grass.mask <- paste0(hd, ":/Grasslands_BioDiv/Data/Copernicus_Grassland/GRA_2018_010m_03035_V1_0.tif")
+grass.mask <- rast(grass.mask)
+s2_pred.terra <- rast(s2_pred)
+
+mask <- (grass.mask != 0)
+mask.proj <- project(mask, "epsg:32632")
+
+mask.res <- resample(mask.proj, s2_pred.terra)
+mask.crp <- crop(mask.res, s2_pred.terra)
+s2_pred.mask <- terra::mask(s2_pred.terra, grass.mask, maskvalues = )
+plot(s2_pred.mask)
