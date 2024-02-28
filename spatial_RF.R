@@ -3,7 +3,7 @@
 library(terra)
 library(raster)
 # stack all raster from S2_max_composites folder and name like columns in RF dataframe
-comp_path <- "E:/Grasslands_BioDiv/Data/S2_max_composites/"
+comp_path <- paste0(hd ,":/Grasslands_BioDiv/Data/S2_max_composites/")
 fls <- list.files(comp_path)
 bands <- c("B2", "B3", "B4", "B5", "B6", "B7", "B8", "B8A", "B11", "B12")
 
@@ -46,3 +46,38 @@ m <- c("03.tif", "04.tif", "05.tif", "06.tif","07.tif", "08.tif", "09.tif", "10.
 fls <- get_monthly_composite(comp_path, m)
 
 max.brick <- stack_S2_months(fls, comp_path, m, "E:/Grasslands_BioDiv/Data/SpatialRF_Data/Monthly_Maximum_comp-nowinter.tif")
+
+
+# which months to use as predictors
+max_comp <- list()
+pred <- c()
+setwd(comp_path)
+
+for (i in 1:length(fls)){
+  date.str <- str_split(fls[i],'-')[[1]][3] %>% str_split(., '.tif')
+  date.str <- date.str[[1]][1] %>% gsub("_", "-", .)
+  rst <- terra::rast(fls[i])
+  if (percentage.na(rst) < 10){
+    names(rst) <- paste0(bands, "_", date.str)
+    max_comp[[i]] <- rst
+    pred <- append(pred, date.str)
+  }
+}
+
+pred <- gsub("-", ".", pred)
+data_frame.90 <- RF_predictors(data_frame, pred)
+
+rf_data <- preprocess_rf_data(data_frame.90, div_df, "specn")
+train_index <- get_train_index(rf_data, s)
+forest <- RF(rf_data, train_index, s)
+print(forest)
+write.RF("months with more than 90 % not nan", "specn", forest, s, csv.path)
+plot.varimp(forest, version = 3)  
+
+max_comp.stack.terra <- terra::rast(max_comp)
+max_comp.brick <- brick(max_comp.stack.terra) # convert terra SpatRaster to raster's brick object
+#max.brick <- brick("E:/Grasslands_BioDiv/Data/SpatialRF_Data/Monthly_Maximum_comp.tif")
+
+names(max_comp.brick)
+s2_pred <- predict(max_comp.brick, model = forest, na.rm = T)
+writeRaster(s2_pred, paste0(hd, ":/Grasslands_BioDiv/Data/SpatialRF_Data/S2_spec_prediction_month90.grd"))

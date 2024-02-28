@@ -381,11 +381,12 @@ write.RF <- function(pred, idx, forest, s, csv.path){
     df <- read.csv(csv.path) # open exisiting csv
   }
   RFImp <- varImp(forest, scale = F)
+  imp <- RFImp$importance
   r2 <- round(forest$results[forest$results$mtry == as.numeric(forest$bestTune),]$Rsquared,3)
   rmse <- round(forest$results[forest$results$mtry == as.numeric(forest$bestTune),]$RMSE,3)
   sd <- round(forest$results[forest$results$mtry == as.numeric(forest$bestTune),]$RsquaredSD,3)
   
-  vars <- rownames(RFImp$importance)[1:3] # first three most important variables
+  vars <- rownames(imp[order(-rowSums(imp)),, drop = F])[1:3] # first three most important variables
   if (is.na(df$Predictors[1])){
     df[1,] <- c(pred, idx, s, r2, rmse, sd, vars)
   }else{
@@ -426,3 +427,15 @@ plot.varimp <- function(forest, write = F, version){
     ggsave(paste0("E:/Grasslands_BioDiv/Out/RF_Results/predictor_importance-v", version, ".png"), plot = gg)
   }
 } 
+
+# General functions
+
+fix.plotnames <- function(nms){
+  fixed_nms <- gsub("Ã¶", "oe", nms)
+  fixed_nms <- gsub("ö", "oe",fixed_nms)
+  
+  fixed_nms <- gsub("Ã¼", "ue", fixed_nms)
+  fixed_nms <- gsub("ü", "ue", fixed_nms)
+  
+  return(fixed_nms)
+}

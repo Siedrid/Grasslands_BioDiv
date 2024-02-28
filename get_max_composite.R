@@ -2,16 +2,17 @@
 
 # create Raster Stack
 
-
+hd <- "F"
 # load acquisitions from one month
-setwd("E:/Grasslands_BioDiv/Data/Field_Data")
+setwd(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data"))
 bands <- c("B2", "B3", "B4", "B5", "B6", "B7", "B8", "B8A", "B11", "B12")
-satpath <- "E:/Grasslands_BioDiv/Data/SatData/"
-wb_path <- "E:/Grasslands_BioDiv/Data/S2_Reflectances/reflectances_plot_center-v1.xlsx"
+satpath <- paste0(hd, ":/Grasslands_BioDiv/Data/SatData/")
+wb_path <- paste0(hd, ":/Grasslands_BioDiv/Data/S2_Reflectances/reflectances_plot_center-v1.xlsx")
 y_str = "2022"
 m = 12
 
-comp_path <- "E:/Grasslands_BioDiv/Data/S2_max_composites/"
+comp_path <- paste0(hd, ":/Grasslands_BioDiv/Data/S2_med_composites/")
+
 maximize_fct <- function(x){
   max(x,na.rm = T)
 }
@@ -61,7 +62,7 @@ for (y_str in c("2022", "2023")){
       message("Write...")
       monthly_stack <- rast(band_lst)
       names(monthly_stack) <- bands
-      writeRaster(monthly_stack, paste0(comp_path,"S2-MaxComp-", y_str, "_", m_str, ".tif"), overwrite = F)
+      writeRaster(monthly_stack, paste0(comp_path,"S2-MedComp-", y_str, "_", m_str, ".tif"), overwrite = F)
       gc()
     }
   }

@@ -6,7 +6,8 @@ library(sf)
 library(readxl)
 
 # get plot center coords
-setwd("E:/Grasslands_BioDiv/Data/Field_Data")
+hd <- "F"
+setwd(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data"))
 
 # function to get either center coords of BT or RB/FE
 get_center_coords <- function(xlsx_path, location = "BT"){
@@ -34,20 +35,48 @@ get_center_coords <- function(xlsx_path, location = "BT"){
 BT_center_coords <- get_center_coords("SUSALPS_samplingData_BT-RB-FE_2022-2023.xlsx")
 
 # Load cut rasters
-setwd("E:/Grasslands_BioDiv/Data/Laura_SchnitteRMWM/")
+setwd(paste0(hd, ":/Grasslands_BioDiv/Data/Laura_SchnitteRMWM/"))
 
 get_first_cut <- function(param, location, year, center_coords){
-  rast_name <- paste0("CutDet_S2_V2_", param, "_", year, "03-", year, "11_", location, ".tif")
-  
+  if (year == 2023){
+    rast_name <- paste0("CutDet_S2_V2_", param, "_", year, "03-", year, "08_", location, ".tif")
+    
+  }else{
+    rast_name <- paste0("CutDet_S2_V2_", param, "_", year, "03-", year, "11_", location, ".tif")
+  }
   rst <- rast(rast_name)
-  param_df <- extract(rst, center_coords[,2:3])
+  param_df <- terra::extract(rst, center_coords[,2:3])
   param_df$ID <- center_coords$plot_names
   colnames(param_df) <- c("plot_names", paste0(param, "_", year))
   
   return(param_df)
 }
 
-get_first_cut("FirstCut", "UPA", 2019, BT_center_coords)
-get_first_cut("MowFreq", "UPA", 2022, BT_center_coords)
+# Mowing Frequency BT areas
+for (yr in seq(2018, 2023, 1)){
+  if (yr == 2018){
+    df_mowfreq <- get_first_cut("MowFreq", "UPA", yr, BT_center_coords)
+  }else{
+    
+    df1 <- get_first_cut("MowFreq", "UPA", yr, BT_center_coords)
+    df_mowfreq <- merge(df1, df_mowfreq, by = "plot_names")
+  }
+}
+as.numeric(df_mowfreq)
 
+# First Cut in BT areas
+for (yr in seq(2018, 2023, 1)){
+  if (yr == 2018){
+    df_firstcut <- get_first_cut("FirstCut", "UPA", yr, BT_center_coords)
+  }else{
+    
+    df1 <- get_first_cut("FirstCut", "UPA", yr, BT_center_coords)
+    df_firstcut <- merge(df1, df_firstcut, by = "plot_names")
+  }
+}
 
+df_firstcut[,2:6] <- lapply(df_firstcut[,2:6], as.numeric)
+median_firstcut <- apply(df_firstcut[,2:6], 1, median, na.rm = T)
+
+df_medfirstcut <- data.frame(plot_names = df_firstcut$plot_names,
+                             medfirst_cut = median_firstcut)

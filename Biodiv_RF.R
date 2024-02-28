@@ -16,12 +16,13 @@ library(tidyr)
 
 
 indx <- "specn"
-data_frame <- read.csv("E:/Grasslands_BioDiv/Data/Field_Data/Reflectance_2022-23_monthly_pivot.csv")
-div_df <- read.csv("E:/Grasslands_BioDiv/Data/Field_Data/Biodiv-indices.csv")
+hd <- "F"
+data_frame <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Reflectance_2022-23_monthly_pivot.csv"))
+div_df <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Biodiv-indices.csv"))
 data_frame <- data_frame[-c(1)]
 div_df <- div_df[-c(1)]
 s <- 10
-csv.path <- "E:/Grasslands_BioDiv/Out/RF_Results/RF_results-v1.csv" # path to write RF results
+csv.path <- paste0(hd, ":/Grasslands_BioDiv/Out/RF_Results/RF_results-v1.csv") # path to write RF results
 rf.results <- read.csv(csv.path)
 
 for (s in c(1:5)){
@@ -176,3 +177,22 @@ df.season <- RF_predictors(df.piv, c("04", "05", "06", "07", "08", "09", "10"))
 
 # April May 2023 fehlen bei vielen sites, durch days since verloren gegangen?
 
+# Franken with Mowing Data ----
+
+s <- 10
+data_frame.nowinter <- RF_predictors(data_frame, c("03$", "04$", "05$", "06$","07$", "08$", "09$", "10$"))
+
+data_frame.nowinter$plot_names <- fix.plotnames(data_frame.nowinter$plot_names)
+df_mowfreq$plot_names <- fix.plotnames(df_mowfreq$plot_names)
+df_firstcut$plot_names <- fix.plotnames((df_firstcut$plot_names))
+
+df.merged <- merge(data_frame.nowinter, df_mowfreq, by = "plot_names")
+df.merged <- merge(df.merged, df_medfirstcut, by = "plot_names")
+
+rf_data <- preprocess_rf_data(df.merged, div_df, "specn")
+train_index <- get_train_index(rf_data, s)
+forest <- RF(rf_data, train_index, s)
+print(forest)
+summarize.RF(forest, div_df,train_index, "specn")
+write.RF("no Winter with Mowing Frequency and Median of first cut", "specn", forest, s, csv.path)
+plot.varimp(forest, version = 3)                                                                    
