@@ -22,6 +22,7 @@ data_frame <- data_frame[-c(1)]
 div_df <- div_df[-c(1)]
 s <- 10
 csv.path <- "E:/Grasslands_BioDiv/Out/RF_Results/RF_results-v1.csv" # path to write RF results
+rf.results <- read.csv(csv.path)
 
 for (s in c(1:5)){
   # keep only spring and summer months
@@ -70,7 +71,7 @@ forest <- RF(rf_data, train_index, s)
 print(forest)
 summarize.RF(forest, div_df,train_index, "specn")
 write.RF("nowinter", "specn", forest, s, csv.path)
-plot.varimp(forest, write = T, 1)
+plot.varimp(forest, write = F, 1)
  
 # RF Ammer ----
 
