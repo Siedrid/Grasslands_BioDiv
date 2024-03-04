@@ -16,7 +16,7 @@ library(tidyr)
 
 
 indx <- "specn"
-hd <- "F"
+hd <- "E"
 data_frame <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Reflectance_2022-23_monthly_pivot.csv"))
 div_df <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Biodiv-indices.csv"))
 data_frame <- data_frame[-c(1)]
@@ -72,7 +72,7 @@ forest <- RF(rf_data, train_index, s)
 print(forest)
 summarize.RF(forest, div_df,train_index, "specn")
 write.RF("nowinter", "specn", forest, s, csv.path)
-plot.varimp(forest, write = F, 1)
+plot.varimp(forest, write = T, 1)
  
 # RF Ammer ----
 
@@ -179,7 +179,7 @@ df.season <- RF_predictors(df.piv, c("04", "05", "06", "07", "08", "09", "10"))
 
 # Franken with Mowing Data ----
 
-s <- 10
+s <- 2
 data_frame.nowinter <- RF_predictors(data_frame, c("03$", "04$", "05$", "06$","07$", "08$", "09$", "10$"))
 
 data_frame.nowinter$plot_names <- fix.plotnames(data_frame.nowinter$plot_names)
@@ -189,10 +189,12 @@ df_firstcut$plot_names <- fix.plotnames((df_firstcut$plot_names))
 df.merged <- merge(data_frame.nowinter, df_mowfreq, by = "plot_names")
 df.merged <- merge(df.merged, df_medfirstcut, by = "plot_names")
 
-rf_data <- preprocess_rf_data(df.merged, div_df, "specn")
+df.mowcut <- merge(df_mowfreq, df_medfirstcut, by = "plot_names") #only Mowing Frequency and Median DOY of first cut
+
+rf_data <- preprocess_rf_data(df.mowcut, div_df, "specn") %>% na.omit()
 train_index <- get_train_index(rf_data, s)
 forest <- RF(rf_data, train_index, s)
 print(forest)
 summarize.RF(forest, div_df,train_index, "specn")
-write.RF("no Winter with Mowing Frequency and Median of first cut", "specn", forest, s, csv.path)
+write.RF("no Winter with Mowing Frequency and Median DOY of first cut", "specn", forest, s, csv.path)
 plot.varimp(forest, version = 3)                                                                    

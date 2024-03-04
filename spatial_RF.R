@@ -3,6 +3,7 @@
 library(terra)
 library(raster)
 # stack all raster from S2_max_composites folder and name like columns in RF dataframe
+hd <- "E"
 comp_path <- paste0(hd ,":/Grasslands_BioDiv/Data/S2_max_composites/")
 fls <- list.files(comp_path)
 bands <- c("B2", "B3", "B4", "B5", "B6", "B7", "B8", "B8A", "B11", "B12")
@@ -53,6 +54,7 @@ max_comp <- list()
 pred <- c()
 setwd(comp_path)
 
+# monthly max composite raster with na values less than 10 percent
 for (i in 1:length(fls)){
   date.str <- str_split(fls[i],'-')[[1]][3] %>% str_split(., '.tif')
   date.str <- date.str[[1]][1] %>% gsub("_", "-", .)
@@ -83,15 +85,16 @@ s2_pred <- predict(max_comp.brick, model = forest, na.rm = T)
 writeRaster(s2_pred, paste0(hd, ":/Grasslands_BioDiv/Data/SpatialRF_Data/S2_spec_prediction_month90.grd"))
 
 # mask with Copernicus Grasslands Layer
-
+s2_pred <- rast("E:/Grasslands_BioDiv/Data/SpatialRF_Data/S2_spec_prediction_month90.grd")
 grass.mask <- paste0(hd, ":/Grasslands_BioDiv/Data/Copernicus_Grassland/GRA_2018_010m_03035_V1_0.tif")
 grass.mask <- rast(grass.mask)
 s2_pred.terra <- rast(s2_pred)
 
-mask <- (grass.mask != 0)
+mask <- (grass.mask != 1)
 mask.proj <- project(mask, "epsg:32632")
 
-mask.res <- resample(mask.proj, s2_pred.terra)
-mask.crp <- crop(mask.res, s2_pred.terra)
-s2_pred.mask <- terra::mask(s2_pred.terra, grass.mask, maskvalues = )
+mask.res <- resample(mask.proj, s2_pred)
+mask.crp <- crop(mask.res, s2_pred)
+s2_pred.mask <- terra::mask(s2_pred, mask.crp, maskvalue = 1)
 plot(s2_pred.mask)
+writeRaster(s2_pred.mask , "E:/Grasslands_BioDiv/Data/SpatialRF_Data/S2_spec_prediction_month90_masked.grd")
