@@ -10,3 +10,7 @@ We trained a Random Forest with monthly S2 composites from 2022 and 2023 and com
 
 To enhance the prediction we also included data on mowing frequency and DOY of first cut.
 
+## Reflectance Trend after Cut
+
+We need to understand better how mowing affects the reflectance, as this will affect the monthly compositing. In some bands, reflectance decreases, whereas in other bands reflectance increases:
+![image](https://github.com/Siedrid/Grasslands_BioDiv/blob/master/Graphs/TrendperBandafterCut.png)
