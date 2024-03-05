@@ -3,7 +3,7 @@
 library(terra)
 library(raster)
 # stack all raster from S2_max_composites folder and name like columns in RF dataframe
-hd <- "E"
+hd <- "G"
 comp_path <- paste0(hd ,":/Grasslands_BioDiv/Data/S2_max_composites/")
 fls <- list.files(comp_path)
 bands <- c("B2", "B3", "B4", "B5", "B6", "B7", "B8", "B8A", "B11", "B12")
@@ -20,7 +20,7 @@ for (i in 1:length(fls)){
 
 max_comp.stack.terra <- terra::rast(max_comp)
 max_comp.brick <- brick(max_comp.stack.terra) # convert terra SpatRaster to raster's brick object
-max.brick <- brick("E:/Grasslands_BioDiv/Data/SpatialRF_Data/Monthly_Maximum_comp.tif")
+max.brick <- brick(paste0(hd, ":/Grasslands_BioDiv/Data/SpatialRF_Data/Monthly_Maximum_comp.tif"))
 names(max.brick)
 
 layer_idx <- which(names(max.brick) %in% colnames(data_frame))
@@ -43,11 +43,19 @@ names(max_comp.stack) <- rast_names
 s2_prediction <- terra::predict(max_comp.stack, model = forest, na.rm = T)
 
 # select months as predictors 
-m <- c("03.tif", "04.tif", "05.tif", "06.tif","07.tif", "08.tif", "09.tif", "10.tif")
+m <- c("03.tif", "04.tif", "05.tif", "06.tif","07.tif", "08.tif", "09.tif")
 fls <- get_monthly_composite(comp_path, m)
 
-max.brick <- stack_S2_months(fls, comp_path, m, "E:/Grasslands_BioDiv/Data/SpatialRF_Data/Monthly_Maximum_comp-nowinter.tif")
+max.brick <- stack_S2_months(fls, comp_path, m, "G:/Grasslands_BioDiv/Data/SpatialRF_Data/Monthly_Maximum_comp-nowinter2.tif")
+df <- RF_predictors(data_frame, names(max.brick))
 
+s <- 10
+rf_data <- preprocess_rf_data(df, div_df, "specn")
+train_index <- get_train_index(rf_data, s)
+forest <- RF(rf_data, train_index, s)
+print(forest)
+
+s2_pred <- predict(max.brick, model = forest, na.rm = T)
 
 # which months to use as predictors
 max_comp <- list()
@@ -67,13 +75,16 @@ for (i in 1:length(fls)){
 }
 
 pred <- gsub("-", ".", pred)
+pred <- append(pred, c("2022.05", "2023.04", "2023.07"))
+data_frame <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Reflectance_2022-23_monthly_pivot.csv"))
 data_frame.90 <- RF_predictors(data_frame, pred)
 
+s <- 10
 rf_data <- preprocess_rf_data(data_frame.90, div_df, "specn")
 train_index <- get_train_index(rf_data, s)
 forest <- RF(rf_data, train_index, s)
 print(forest)
-write.RF("months with more than 90 % not nan", "specn", forest, s, csv.path)
+write.RF("months with more than 90 % not nan, plus may, april, july", "specn", forest, s, csv.path)
 plot.varimp(forest, version = 3)  
 
 max_comp.stack.terra <- terra::rast(max_comp)
