@@ -293,7 +293,7 @@ RF <- function(rf_data, train_index, s){
   return(forest)
 }
 
-summarize.RF <- function(forest, div_df, train_index, biodiv_index){
+summarize.RF <- function(forest, rf_data, div_df, train_index, biodiv_index){
   # Visualization of model prediction
   train.res <- forest$trainingData['.outcome']
   train.res$predicted <- unname(forest$finalModel$predicted)
@@ -319,8 +319,9 @@ summarize.RF <- function(forest, div_df, train_index, biodiv_index){
   
   lab <- paste("R² =", round(R2,3), "\n", "n =", nrow(train.res), "\n", 
                "R² =", round(r2_test,3), "\n", "n =", length(test))
-  rf_plot <- ggplot()+
-    geom_point(data = test_df, aes(x=.outcome, y=predicted, col=traintest))+
+  rf_plot <- ggplot(data = test_df, aes(x=.outcome, y=predicted, col=traintest, label = rownames(test_df)))+
+    geom_point()+
+    geom_text(check_overlap = T, nudge_y = 1)+
     geom_abline(slope = 1)+
     xlim(limx)+
     ylim(limx)+

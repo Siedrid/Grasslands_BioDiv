@@ -198,3 +198,15 @@ print(forest)
 summarize.RF(forest, div_df,train_index, "specn")
 write.RF("no Winter with Mowing Frequency and Median DOY of first cut", "specn", forest, s, csv.path)
 plot.varimp(forest, version = 3)                                                                    
+
+# only Ammer Data ----
+
+ammer.df <- read.csv("G:/Grasslands_BioDiv/Data/Field_Data/Ammer/Reflectance_2019-20_monthly_pivot.csv")
+ammer_div_df <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Biodiv-indices_Ammer.csv"))
+ammer.plots <- ammer_div_df$plot_names
+rf_data_ammer <- preprocess_rf_data(max_df_piv, ammer_div_df, biodiv)
+
+train_index <- get_train_index(rf_data_ammer, s)
+forest <- RF(rf_data_ammer, train_index, s) # ergibt kein Sinn, da nur 10 samples?
+print(forest)
+               

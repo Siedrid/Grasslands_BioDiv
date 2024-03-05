@@ -72,3 +72,37 @@ for (plot in plots){
 }
 write.csv(df.incr, "E:/Grasslands_BioDiv/Out/Increasing-decreasing_Refl_after_cut-2022.csv", row.names = F)
 df_incr2023 <- df.incr
+
+# Plot Trends per Band ----
+
+# rownames lost
+refl_trend2022 <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Out/Increasing-decreasing_Refl_after_cut-2022.csv"))
+refl_trend2023 <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Out/Increasing-decreasing_Refl_after_cut-2023.csv"))
+refl_trend2022$year <- rep(2022, nrow(refl_trend2022))
+refl_trend2023$year <- rep(2023, nrow(refl_trend2023))
+
+refl_trend.long <- pivot_longer(refl_trend2022, cols = bands, names_to = "bands", values_to = "trend")
+refl_trend.long$trend[is.na(refl_trend.long$trend)] <- "NA"
+
+trend2022 <- ggplot(refl_trend.long, aes(x= factor(bands), fill = factor(trend)))+
+  geom_bar(position = "dodge")+
+  scale_fill_manual(values = c("-1" = "blue", "1" = "red", "NA" = "grey"),
+                    na.value = "grey", labels = c("Decreasing", "Increasing", "No Trend"))+
+  labs(x="Band", y = "Count", fill = "Trend")+
+  ggtitle("Trends after Mowing Event per Band")+
+  theme_minimal()
+
+refl_trend.long <- pivot_longer(refl_trend2023, cols = bands, names_to = "bands", values_to = "trend")
+refl_trend.long$trend[is.na(refl_trend.long$trend)] <- "NA"
+
+trend2023 <- ggplot(refl_trend.long, aes(x= factor(bands), fill = factor(trend)))+
+  geom_bar(position = "dodge")+
+  scale_fill_manual(values = c("-1" = "blue", "1" = "red", "NA" = "grey"),
+                    na.value = "grey", labels = c("Decreasing", "Increasing", "No Trend"))+
+  labs(x="Band", y = "Count", fill = "Trend")+
+  ggtitle("Trends after Mowing Event per Band")+
+  theme_minimal()
+
+png("G:/Grasslands_BioDiv/Out/Graphs/TrendperBandafterCut.png",width = 10, height = 8, units = "in", res = 1200)
+ggarrange(trend2022, trend2023, ncol = 2, labels = c("2022", "2023"), common.legend = T, hjust = 0.05)
+dev.off()

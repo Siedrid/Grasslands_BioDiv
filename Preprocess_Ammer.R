@@ -2,8 +2,8 @@
 library(dplyr)
 library(tidyr)
 library(vegan)
-hd <- "E"
-setwd("E:/Grasslands_BioDiv/Data/Field_Data/Ammer/")
+hd <- "G"
+setwd(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Ammer/"))
 
 ammer.df <- read.csv("SUSALPS-RS_samplingData_plotLevel_bothDepths_2019-2021_20230301_plus_S2-Maja-5days_VI_days-cut_clean_20230717.csv", sep = ';')
 bands <- c("B2", "B3", "B4", "B5", "B6", "B7", "B8", "B8A", "B11", "B12") # Sentinel-2 Bands
@@ -82,6 +82,7 @@ result <- max_df %>%
   summarize(Num_Months = n_distinct(plot_names))
 
 m.RF <- result[result$Num_Months == 13,]$month # months usable for RF
+# use only 03-09 for RF, 2019 missing for GL plot
 
 max_df %>% group_by(month) %>% 
   ggplot(aes(x = month))+
@@ -93,3 +94,47 @@ df.scaled <- max_df.flt %>% mutate(across(all_of(bands), ~. /10000))
 
 # Pivot data
 max_df_piv <- pivot.df(df.scaled)
+colnames(max_df_piv) <- gsub("-", ".", colnames(max_df_piv))
+write.csv(max_df_piv, "G:/Grasslands_BioDiv/Data/Field_Data/Ammer/Reflectance_2019-20_monthly_pivot.csv", row.names = F)
+
+# merge Ammer and BT data
+data_frame <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Reflectance_2022-23_monthly_pivot.csv"))
+div_df <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Biodiv-indices.csv"))
+div_df <- div_df[-c(1)]
+ammer_div_df <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Biodiv-indices_Ammer.csv"))
+# Diversity indices only for 10 plots - right?
+
+biodiv <- "shannon"
+ammer.plots <- ammer_div_df$plot_names
+rf_data_ammer <- preprocess_rf_data(max_df_piv, ammer_div_df, biodiv)
+
+predictors <- gsub("-", ".", m.RF) %>% gsub("2019", "2022", .) %>% gsub("2020", "2023", .)
+data_frame.ammermonths <- RF_predictors(data_frame, predictors)
+rf_data <- preprocess_rf_data(data_frame.ammermonths, div_df, biodiv)
+BT.plots <- rownames(rf_data)
+
+colnames(rf_data) <- gsub("2022", "2019", colnames(rf_data)) %>% gsub("2023", "2020", .)
+max_df_piv.flt <- rf_data_ammer %>% select(names(rf_data))
+
+ammer.BT.df <- rbind(rf_data, max_df_piv.flt)
+div_df_merged <- rbind(div_df, ammer_div_df) # merge Ammer and BT diversity df
+
+# option to set percentage of Ammer and BT data in training set
+s <- 123
+train.ammer <- sample(ammer.plots, 5)
+train.BT <- sample(BT.plots, 45)
+
+train.names <- append(train.ammer, train.BT)
+
+train_index <- which(rownames(ammer.BT.df) %in% train.names)
+forest <- RF(ammer.BT.df, train_index, s)
+print(forest)
+rf_plot <- summarize.RF(forest, ammer.BT.df, div_df_merged,train_index,biodiv)
+rf_plot
+ggsave(plot = rf_plot, paste0(hd, ":/Grasslands_BioDiv/Out/RF_Results/AmmerandBTdataTrainingSetRF-s123.png"))
+write.RF("BT and Ammer data in Training Set", biodiv, forest, s, csv.path)
+varimp <- plot.varimp(forest, version = 3)                                                                    
+ggsave(plot = varimp, paste0(hd, ":/Grasslands_BioDiv/Out/RF_Results/AmmerandBTdataTrainingSet_variableImp-s123.png"))
+
+
+# 
