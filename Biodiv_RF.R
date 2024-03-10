@@ -65,14 +65,18 @@ for (s in c(1:5)){
 
 # RF no winter predictors ----
 s <- 7
-data_frame.nowinter <- RF_predictors(data_frame, c("03$", "04$", "05$", "06$","07$", "08$", "09$", "10$"))
+data_frame.nowinter <- RF_predictors(data_frame, c("03$", "04$", "05$", "06$","07$", "08$", "09$"))
 rf_data <- preprocess_rf_data(data_frame.nowinter, div_df, "specn")
 train_index <- get_train_index(rf_data, s)
 forest <- RF(rf_data, train_index, s)
 print(forest)
-summarize.RF(forest, div_df,train_index, "specn")
-write.RF("nowinter", "specn", forest, s, csv.path)
-plot.varimp(forest, write = T, 1)
+png("E:/Grasslands_BioDiv/Out/RF_Results/nowinter_RF.png")
+summarize.RF(forest, rf_data, div_df,train_index, "specn")
+dev.off()
+write.RF("nowinter (March to September)", "specn", forest, s, csv.path)
+png("E:/Grasslands_BioDiv/Out/RF_Results/nowinter_varimp.png")
+plot.varimp(forest, write = F, 1)
+dev.off()
  
 # RF Ammer ----
 
@@ -97,11 +101,10 @@ RFImp$importance # data frame
 png("E:/Grasslands_BioDiv/Out/Graphs/RF/Variable_Importance.png")
 plot(RFImp, top = 20)
 dev.off()
-
-# write RF results to csv
 csv.path <- "E:/Grasslands_BioDiv/Out/RF_Results/RF_results-v1.csv"
 write.RF("spring", forest, s, csv.path)
 
+# Overview over three indices ----
 biodiv_indx <- c("specn", "shannon", "simpson")
 
 for (indx in biodiv_indx){
@@ -209,4 +212,64 @@ rf_data_ammer <- preprocess_rf_data(max_df_piv, ammer_div_df, biodiv)
 train_index <- get_train_index(rf_data_ammer, s)
 forest <- RF(rf_data_ammer, train_index, s) # ergibt kein Sinn, da nur 10 samples?
 print(forest)
-               
+
+# new compositing to monthly reflectances----
+
+df <- read.csv("E:/Grasslands_BioDiv/Data/S2_Reflectances/Reflectance_2022-23_interpolated.csv")
+max.bands <- c("B7", "B8", "B8A")
+min.bands <- c("B2", "B3", "B4", "B5", "B6", "B11", "B12") 
+
+df$dat <- as.Date(df$dat)
+df <- na.omit(df)
+df.comp <- comp_max.bands(df, date.column = "dat", max_bands = max.bands, min_bands = min.bands)
+#df.comp <- na.omit(df.comp)
+piv.df <- pivot.df(df.comp)
+max_df_piv.flt <- piv.df %>% select(-which(colSums(is.na(.)) > 0)) 
+
+df <- RF_predictors(max_df_piv.flt, c("03$", "04$", "05$", "06$","07$", "08$", "09$"))
+rf_data <- preprocess_rf_data(df, div_df, "specn")
+
+train_index <- get_train_index(rf_data, s)
+forest <- RF(rf_data, train_index, s) 
+print(forest)
+png("E:/Grasslands_BioDiv/Out/RF_Results/compositingperband_RF.png")
+summarize.RF(forest, rf_data, div_df,train_index, "specn")
+dev.off()
+write.RF("max/min compositing per band", "specn", forest, s, csv.path)
+png("E:/Grasslands_BioDiv/Out/RF_Results/compositingperband_varimp.png")
+plot.varimp(forest, version = 3) 
+dev.off()
+
+# nochmal checken, ob alle Monate/Jahre gleichmässig vorhanden sind
+imp.sep <- forest$coefnames %>% data.frame(.) %>% 
+  separate(forest.coefnames,into = c("Band", "Year", "Month"), sep = "_|\\.")
+
+var.check <- data.frame(forest$coefnames) %>% separate(forest.coefnames, into = c("Band", "Year", "Month"), sep = "_|\\.")
+
+band.plot <- var.check %>% group_by(Band) %>% 
+  ggplot(aes(x=factor(Band)))+
+  geom_bar(show.legend = F)
+
+year.plot <- var.check %>% group_by(Year) %>% 
+  ggplot(aes(x=factor(Year)))+
+  geom_bar(show.legend = F)
+
+month.plot <- var.check %>% group_by(Month) %>% 
+  ggplot(aes(x=factor(Month)))+
+  geom_bar(show.legend = F)
+
+# sum up mowing frequency ----
+
+df.mowcut <- merge(data_frame.nowinter, rsum.df, by = "plot_names") # see script mowing_frequency.R
+
+rf_data <- preprocess_rf_data(df.mowcut, div_df, "specn")
+train_index <- get_train_index(rf_data, s)
+forest <- RF(rf_data, train_index, s)
+print(forest)
+png("E:/Grasslands_BioDiv/Out/RF_Results/compositingperband_RF.png")
+summarize.RF(forest, rf_data, div_df,train_index, "specn")
+dev.off()
+write.RF("max/min compositing per band", "specn", forest, s, csv.path)
+png("E:/Grasslands_BioDiv/Out/RF_Results/compositingperband_varimp.png")
+plot.varimp(forest, version = 3) 
+dev.off()

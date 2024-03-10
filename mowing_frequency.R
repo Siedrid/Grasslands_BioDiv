@@ -56,3 +56,7 @@ median_firstcut <- apply(df_firstcut[,2:6], 1, median, na.rm = T)
 
 df_medfirstcut <- data.frame(plot_names = df_firstcut$plot_names,
                              medfirst_cut = median_firstcut)
+
+# sum up mowfrequencies 2018 to 2023
+rsum <- rowSums(df_mowfreq[,2:6], na.rm = T)
+rsum.df <- data.frame(plot_names = df_mowfreq$plot_names, mowfreq = rsum)

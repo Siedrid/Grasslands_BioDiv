@@ -220,6 +220,18 @@ comp_max <- function(df, date.column){
   return(max_df)
 }
 
+# calculate maximum and minimum composite depending on bands
+comp_max.bands <- function(df, date.column, max_bands, min_bands){
+  # rename date column
+  colnames(df)[colnames(df) == date.column] <- "dat"
+  # Calculate maximum and minimum reflectance per band, plot and month
+  max_df <- df %>%
+    group_by(plot_names, month = format(dat, "%Y.%m")) %>% # punkt statt - 
+    summarize(across(all_of(max_bands), max, na.rm = TRUE),
+              across(all_of(min_bands), min, na.rm = TRUE))  
+  return(max_df)
+}
+
 # return maximum days since last cut per month
 comp_max_days_since <- function(df, date.column){
   # rename date column
