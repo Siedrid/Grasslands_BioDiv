@@ -210,14 +210,14 @@ interpolate.ts <- function(df, plot.column){
   return(int.ts)
 }
 
-comp_max <- function(df, date.column){
+comp_max <- function(df, date.column, stat){
   # rename date column
   colnames(df)[colnames(df) == date.column] <- "dat"
   # Calculate maximum reflectance per band, plot and month
-  max_df <- df %>%
-    group_by(plot_names, month = format(dat, "%Y-%m")) %>% 
-    summarize_if(is.numeric, max, na.rm = TRUE)  
-  return(max_df)
+  comp_df <- df %>%
+    group_by(plot_names, month = format(dat, "%Y.%m")) %>% 
+    summarize_if(is.numeric, stat, na.rm = TRUE)  
+  return(comp_df)
 }
 
 # calculate maximum and minimum composite depending on bands
@@ -227,8 +227,8 @@ comp_max.bands <- function(df, date.column, max_bands, min_bands){
   # Calculate maximum and minimum reflectance per band, plot and month
   max_df <- df %>%
     group_by(plot_names, month = format(dat, "%Y.%m")) %>% # punkt statt - 
-    summarize(across(all_of(max_bands), max, na.rm = TRUE),
-              across(all_of(min_bands), min, na.rm = TRUE))  
+    summarize(across(all_of(max_bands), \(x) max(x, na.rm = TRUE)),
+              across(all_of(min_bands),\(x) min(x, na.rm = TRUE)))  
   return(max_df)
 }
 
@@ -409,17 +409,33 @@ write.RF <- function(pred, idx, forest, s, csv.path){
   return(df)
 }
 
-# aggregate according to band and month/year 
-plot.varimp <- function(forest, write = F, version){
+# plot varimportance from caret package in ggplot
+plot.varimp.caret <- function(imp.df){
   
-  RFImp <- varImp(forest, scale = F)
-  imp.df <- RFImp$importance
+  imp.df$variable <- rownames(imp.df)
+  imp.df <- imp.df[order(-imp.df$Overall), ]
+  
+  top_20 <- imp.df[1:15, ]
+  top_20$variable <- factor(top_20$variable, levels = rev(unique(top_20$variable)))
+  
+  ImpPlot <- ggplot(top_20, aes(x = variable, y = Overall)) +
+    geom_bar(stat = "identity") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+    labs(x = "Variable", y = "Importance") +
+    coord_flip()
+  
+  return(ImpPlot)
+}
+  
+# aggregate according to band and month/year 
+plot.varimp <- function(forest){
+  
+  imp.df <- varImp(forest, scale = F)$importance
   
   imp.sep <- imp.df %>% rownames_to_column(var = "band.date") %>% 
     separate(band.date, into = c("Band", "Year", "Month"), sep = "_|\\.")
   
-  par(bg = "white")
-  top20 <- plot(RFImp, top = 20)
+  top20 <- plot.varimp.caret(imp.df)
   
   band.plot <- imp.sep %>% group_by(Band) %>% 
     ggplot(aes(x=Band, y=Overall))+
@@ -435,10 +451,7 @@ plot.varimp <- function(forest, write = F, version){
   
   gg <- ggarrange(band.plot, year.plot,
                   top20, month.plot, ncol = 2, nrow = 2, labels = c("A", "B", "C", "D"))
-  print(gg)
-  if (write == T){
-    ggsave(paste0("E:/Grasslands_BioDiv/Out/RF_Results/predictor_importance-v", version, ".png"), plot = gg)
-  }
+  return(gg)
 } 
 
 # General functions ----

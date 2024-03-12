@@ -216,13 +216,45 @@ print(forest)
 # new compositing to monthly reflectances----
 
 df <- read.csv("E:/Grasslands_BioDiv/Data/S2_Reflectances/Reflectance_2022-23_interpolated.csv")
+df <- df[-c(1)]
 max.bands <- c("B7", "B8", "B8A")
 min.bands <- c("B2", "B3", "B4", "B5", "B6", "B11", "B12") 
 
 df$dat <- as.Date(df$dat)
 df <- na.omit(df)
+df.median <- comp_max(df, date.column = "dat", stat = median)
+df.max <- comp_max(df, date.column = "dat", stat = max)
+df.min <- comp_max(df, date.column = "dat", stat = min)
 df.comp <- comp_max.bands(df, date.column = "dat", max_bands = max.bands, min_bands = min.bands)
+
 #df.comp <- na.omit(df.comp)
+
+comp <- c("Median","Max", "Min", "MaxMinperBand")
+df.lst <- list(df.median, df.max, df.min, df.comp)
+for (i in 1:length(df.lst)){
+  df <- df.lst[[i]]
+  piv.df <- pivot.df(df)
+  max_df_piv.flt <- piv.df %>% select(-which(colSums(is.na(.)) > 0)) 
+  df <- RF_predictors(max_df_piv.flt, c("03$", "04$", "05$", "06$","07$", "08$", "09$"))
+  rf_data <- preprocess_rf_data(df, div_df, "specn")
+  write.csv(rf_data, paste0("E:/Grasslands_BioDiv/Out/RF_DataframeInputs/BT-", comp[i], ".csv"))
+  
+  for (s in sample(c(1:100), 5)){
+    message(paste("Calculating RF with", comp[i], "and seed s =", s))
+    
+    train_index <- get_train_index(rf_data, s)
+    forest <- RF(rf_data, train_index, s) 
+    print(forest)
+    plot.name <- paste0(comp[i], "-", s)
+    write.RF(comp[i], "specn", forest, s, csv.path)
+
+    # Plots
+    RFout <- summarize.RF(forest, rf_data, div_df,train_index, "specn")
+    ggsave(paste0("E:/Grasslands_BioDiv/Out/RF_Results/", plot.name, "_RF.png"), plot = RFout)
+    varimp <- plot.varimp(forest)
+    ggsave(paste0("E:/Grasslands_BioDiv/Out/RF_Results/", plot.name, "_varimp.png"), plot = varimp)
+  }
+}
 piv.df <- pivot.df(df.comp)
 max_df_piv.flt <- piv.df %>% select(-which(colSums(is.na(.)) > 0)) 
 
@@ -273,3 +305,6 @@ write.RF("max/min compositing per band", "specn", forest, s, csv.path)
 png("E:/Grasslands_BioDiv/Out/RF_Results/compositingperband_varimp.png")
 plot.varimp(forest, version = 3) 
 dev.off()
+
+# einzelne dataframes speichern, nachvollziehbar welche cases
+# jeweils 5 RFs rechnen, R2 vgl
