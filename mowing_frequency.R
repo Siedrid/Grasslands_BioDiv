@@ -6,10 +6,11 @@ library(sf)
 library(readxl)
 
 # get plot center coords
-hd <- "E"
+hd <- "G"
 setwd(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data"))
 
 BT_center_coords <- get_center_coords("SUSALPS_samplingData_BT-RB-FE_2022-2023.xlsx")
+RB_center_coords <- get_center_coords("SUSALPS_samplingData_BT-RB-FE_2022-2023.xlsx", location = "RB")
 
 # Load cut rasters
 setwd(paste0(hd, ":/Grasslands_BioDiv/Data/Laura_SchnitteRMWM/"))

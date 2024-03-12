@@ -62,3 +62,16 @@ ggplot(data = div.sf)+
   geom_sf(aes(color = shannon))
 
 st_write(div.sf, "Shapes/Hummelgau_Biodiv_2023.gpkg", driver = "GPKG")
+
+# create gpkg from Ammer species data ----
+hd <- "G"
+setwd(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data"))
+RB_center_coords <- get_center_coords("SUSALPS_samplingData_BT-RB-FE_2022-2023.xlsx", location = "RB")
+Ammer_coords <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Ammer/Plotcenters_merge.csv"))
+ammer_div_df <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Biodiv-indices_Ammer.csv"))
+
+plot_names <- strsplit(Ammer_coords$layer, "_") %>% lapply(., `[[`,1) %>% unlist()
+Ammer_coords$plot_names <- plot_names
+ammer.merged <- merge(Ammer_coords, ammer_div_df, by = "plot_names")[c('plot_names', 'Y', 'X', 'shannon', 'simpson','specn')]
+ammer.sf <- st_as_sf(ammer.merged, coords = c("X", "Y"), crs = st_crs(25832))
+st_write(ammer.sf, "Shapes/Ammer-Biodiv.gpkg", driver = "GPKG")

@@ -98,6 +98,7 @@ colnames(max_df_piv) <- gsub("-", ".", colnames(max_df_piv))
 write.csv(max_df_piv, "G:/Grasslands_BioDiv/Data/Field_Data/Ammer/Reflectance_2019-20_monthly_pivot.csv", row.names = F)
 
 # merge Ammer and BT data
+data_frame.ammer <- read.csv("G:/Grasslands_BioDiv/Data/Field_Data/Ammer/Reflectance_2019-20_monthly_pivot.csv")
 data_frame <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Reflectance_2022-23_monthly_pivot.csv"))
 div_df <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Biodiv-indices.csv"))
 div_df <- div_df[-c(1)]
@@ -106,7 +107,7 @@ ammer_div_df <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Biodiv-
 
 biodiv <- "shannon"
 ammer.plots <- ammer_div_df$plot_names
-rf_data_ammer <- preprocess_rf_data(max_df_piv, ammer_div_df, biodiv)
+rf_data_ammer <- preprocess_rf_data(data_frame.ammer, ammer_div_df, biodiv)
 
 predictors <- gsub("-", ".", m.RF) %>% gsub("2019", "2022", .) %>% gsub("2020", "2023", .)
 data_frame.ammermonths <- RF_predictors(data_frame, predictors)

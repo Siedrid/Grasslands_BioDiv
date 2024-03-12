@@ -1,8 +1,8 @@
 # All Functions for Biodiversity Random Forest Implementation
 
 # get Reflectances ----
-# check
-setwd("E:/Grasslands_BioDiv/Data/Field_Data")
+hd <- "G"
+setwd(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data"))
 library(readxl)
 library(openxlsx)
 library(vegan)
