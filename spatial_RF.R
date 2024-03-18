@@ -2,11 +2,26 @@
 
 library(terra)
 library(raster)
+library(sf)
 # stack all raster from S2_max_composites folder and name like columns in RF dataframe
-hd <- "G"
+hd <- "E"
 comp_path <- paste0(hd ,":/Grasslands_BioDiv/Data/S2_max_composites/")
 fls <- list.files(comp_path)
 bands <- c("B2", "B3", "B4", "B5", "B6", "B7", "B8", "B8A", "B11", "B12")
+
+setwd(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data"))
+BT_center_coords <- get_center_coords("SUSALPS_samplingData_BT-RB-FE_2022-2023.xlsx")
+
+# define extent of prediction map!
+# create an extent file from study region
+xmin <- min(BT_center_coords$X - 500, na.rm = T)
+xmax <- max(BT_center_coords$X + 500, na.rm = T)
+ymax <- max(BT_center_coords$Y + 500, na.rm = T)
+ymin <- min(BT_center_coords$Y - 500, na.rm = T)
+
+bb <- st_bbox(c(xmin, xmax, ymin, ymax))
+ext <- raster::extent(xmin, xmax, ymin, ymax)
+
 
 max_comp <- list()
 setwd(comp_path)
@@ -97,8 +112,8 @@ writeRaster(s2_pred, paste0(hd, ":/Grasslands_BioDiv/Data/SpatialRF_Data/S2_spec
 
 # mask with Copernicus Grasslands Layer
 s2_pred <- rast("E:/Grasslands_BioDiv/Data/SpatialRF_Data/S2_spec_prediction_month90.grd")
-grass.mask <- paste0(hd, ":/Grasslands_BioDiv/Data/Copernicus_Grassland/GRA_2018_010m_03035_V1_0.tif")
-grass.mask <- rast(grass.mask)
+grass.mask.path <- paste0(hd, ":/Grasslands_BioDiv/Data/Copernicus_Grassland/GRA_2018_010m_03035_V1_0.tif")
+grass.mask <- rast(grass.mask.path)
 s2_pred.terra <- rast(s2_pred)
 
 mask <- (grass.mask != 1)
@@ -109,3 +124,73 @@ mask.crp <- crop(mask.res, s2_pred)
 s2_pred.mask <- terra::mask(s2_pred, mask.crp, maskvalue = 1)
 plot(s2_pred.mask)
 writeRaster(s2_pred.mask , "E:/Grasslands_BioDiv/Data/SpatialRF_Data/S2_spec_prediction_month90_masked.grd")
+
+mask.grasslands <- function(s2_pred.rast, grass.mask){
+  mask <- (grass.mask != 1)
+  mask.proj <- project(mask, "epsg:32632")
+  
+  mask.res <- resample(mask.proj, s2_pred.rast)
+  mask.crp <- crop(mask.res, s2_pred.rast)
+  s2_pred.mask <- terra::mask(s2_pred.rast, mask.crp, maskvalue = 1)
+  return(s2_pred.mask)
+}
+# Prediction on Minimum Raster Composites
+
+comp_path <- paste0(hd, ":/Grasslands_BioDiv/Data/S2_min_composites/")
+
+indx <- "specn"
+hd <- "E"
+plt.path <- paste0(hd, ":/Grasslands_BioDiv/Out/Graphs/finalPlots_präsi/")
+
+data_frame <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Reflectance_2022-23_monthly_pivot.csv"))
+div_df <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Biodiv-indices.csv"))
+data_frame <- data_frame[-c(1)]
+div_df <- div_df[-c(1)]
+s <- 91
+csv.path <- paste0(hd, ":/Grasslands_BioDiv/Out/RF_Results/RF_results-v1.csv") # path to write RF results
+rf.results <- read.csv(csv.path)
+data_frame.nowinter <- RF_predictors(data_frame, c("03$", "04$", "05$", "06$","2022.07$", "08$", "2022.09$"))
+
+rf_data <- preprocess_rf_data(data_frame.nowinter, div_df, "specn")
+train_index <- get_train_index(rf_data, s)
+forest <- RF(rf_data, train_index, s)
+print(forest)
+png("E:/Grasslands_BioDiv/Out/RF_Results/nowinter_RF_spatial.png")
+summarize.RF(forest, rf_data, div_df,train_index, "specn")
+dev.off()
+write.RF("nowinter (March to September)", "specn", forest, s, csv.path)
+png("E:/Grasslands_BioDiv/Out/RF_Results/nowinter_varimp_spatial.png")
+plot.varimp(forest)
+dev.off()
+
+# prepare raster stack / brick
+# which months to use as predictors
+max_comp <- list()
+pred <- c()
+setwd(comp_path)
+
+# monthly max composite raster with na values less than 10 percent
+fls <- list.files(comp_path)
+m <- c("03.tif", "04.tif", "05.tif", "06.tif","2022_07.tif", "08.tif", "2022_09.tif")
+fls <- get_monthly_composite(comp_path, m)
+
+max_comp <- list()
+setwd(comp_path)
+for (i in 1:length(fls)){
+  date.str <- str_split(fls[i],'-')[[1]][3] %>% str_split(., '.tif')
+  date.str <- date.str[[1]][1] %>% gsub("_", "-", .)
+  rst <- terra::rast(fls[i])
+  names(rst) <- paste0(bands, "_", date.str)
+  max_comp[[i]] <- rst
+}
+
+max_comp.stack.terra <- terra::rast(max_comp)
+max_comp.brick <- brick(max_comp.stack.terra) # convert terra SpatRaster to raster's brick object
+s2_pred <- predict(max_comp.brick, model = forest, na.rm = T)
+writeRaster(s2_pred, "E:/Grasslands_BioDiv/Data/SpatialRF_Data/S2_spec_prediction_minimum_nowinter.grd")
+
+grass.mask.path <- paste0(hd, ":/Grasslands_BioDiv/Data/Copernicus_Grassland/GRA_2018_010m_03035_V1_0.tif")
+grass.mask <- rast(grass.mask.path)
+s2.masked <- mask.grasslands(rast(s2_pred), grass.mask)
+plot(s2.masked)
+writeRaster(s2.masked, "E:/Grasslands_BioDiv/Data/SpatialRF_Data/S2_spec_prediction_minimum_nowinter_masked.grd")

@@ -16,7 +16,8 @@ library(tidyr)
 
 
 indx <- "specn"
-hd <- "G"
+hd <- "E"
+plt.path <- paste0(hd, ":/Grasslands_BioDiv/Out/Graphs/finalPlots_präsi/")
 data_frame <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Reflectance_2022-23_monthly_pivot.csv"))
 div_df <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Biodiv-indices.csv"))
 data_frame <- data_frame[-c(1)]
@@ -38,7 +39,7 @@ for (s in c(1:5)){
   forest <- RF(rf_data, train_index, s)
   print(forest)
   
-  summarize.RF(forest, div_df, train_index, "specn")
+  summarize.RF(forest, rf_data, div_df, train_index, "specn")
   RFImp <- varImp(forest, scale = F)
   plot(RFImp, top = 20)
   
@@ -106,16 +107,17 @@ write.RF("spring", forest, s, csv.path)
 
 # Overview over three indices ----
 biodiv_indx <- c("specn", "shannon", "simpson")
+data_frame.nowinter <- RF_predictors(data_frame, c("03$", "04$", "05$", "06$","07$", "08$", "09$"))
 
 for (indx in biodiv_indx){
-  rf_data <- preprocess_rf_data(data_frame, div_df, indx)
+  rf_data <- preprocess_rf_data(data_frame.nowinter, div_df, indx)
   train_index <- get_train_index(rf_data, s)
   forest <- RF(rf_data, train_index, s)
   print(forest)
-  assign(indx, summarize.RF(forest, div_df, train_index, indx))
+  assign(indx, summarize.RF(forest, rf_data, div_df, train_index, indx, plot_labels = F))
 }
 forest
-png("E:/Grasslands_BioDiv/Out/Graphs/RF/RF-vgl-indices_v1.png",width = 8, height = 10, units = "in", res = 1200)
+png(paste0(plt.path,"RF-vgl-indices_v1.png"),width = 8, height = 10, units = "in", res = 1200)
 ggarrange(specn,
           ggarrange(shannon, simpson, ncol = 2, labels = c("B", "C")),
           nrow=2,

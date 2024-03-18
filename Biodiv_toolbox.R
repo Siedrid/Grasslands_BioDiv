@@ -1,7 +1,7 @@
 # All Functions for Biodiversity Random Forest Implementation
 
 # get Reflectances ----
-hd <- "G"
+hd <- "E"
 setwd(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data"))
 library(readxl)
 library(openxlsx)
@@ -65,7 +65,7 @@ get_acquisitions <- function(y, m, wd){
 
 get_masks <- function(acq){
   mask_path <- paste0(acq, '/MASKS/')
-  mask_lst <- list.files(mask_path, pattern = '.tif', full.names = T)
+  mask_lst <- list.files(mask_path, pattern = '.tif$', full.names = T)
   idx <- grep('MG2', mask_lst) # get index of file with MG2 in file name
   
   mask_path <- c(mask_lst[idx[1]],mask_lst[idx[2]]) # M10, M20
@@ -305,7 +305,7 @@ RF <- function(rf_data, train_index, s){
   return(forest)
 }
 
-summarize.RF <- function(forest, rf_data, div_df, train_index, biodiv_index){
+summarize.RF <- function(forest, rf_data, div_df, train_index, biodiv_index, plot_labels = T){
   # Visualization of model prediction
   train.res <- forest$trainingData['.outcome']
   train.res$predicted <- unname(forest$finalModel$predicted)
@@ -323,23 +323,42 @@ summarize.RF <- function(forest, rf_data, div_df, train_index, biodiv_index){
   
   # get x and y range
   limx <- c(min(test_df$.outcome), max(test_df$.outcome))
+  limy <- limx[2]*(1-0.04)
   
   model <- lm(predicted ~ .outcome, data = test_df)
   r2_test <- summary(model)$r.squared
   # text position
   text.pos <- quantile(test_df$.outcome, 0.1) %>% unname()
   
-  lab <- paste("R² =", round(R2,3), "\n", "n =", nrow(train.res), "\n", 
-               "R² =", round(r2_test,3), "\n", "n =", length(test))
-  rf_plot <- ggplot(data = test_df, aes(x=.outcome, y=predicted, col=traintest, label = rownames(test_df)))+
-    geom_point()+
-    geom_text(check_overlap = T, nudge_y = 1)+
-    geom_abline(slope = 1)+
-    xlim(limx)+
-    ylim(limx)+
-    annotate("text", x= limx[1], y=(limx[2]*(1-0.04)), label = lab, hjust = 0)+
-    ggtitle(paste("Random Forest Result:", biodiv_index))
+  lab <- c(paste("R[train]^2 == ", round(R2,3)),
+                 paste("n[train] ==", nrow(train.res)), 
+                paste("R[test]^2 == ", round(r2_test,3)),
+                paste("n[test] ==", length(test)))
   
+  if (plot_labels == T){
+     rf_plot <- ggplot(data = test_df, aes(x=.outcome, y=predicted, col=traintest, label = rownames(test_df)))+
+      geom_point(size = 2.5)+
+      geom_text(check_overlap = T, nudge_y = 1, size = 2.7)+
+      geom_abline(slope = 1)+
+      xlim(limx)+
+      ylim(limx)+
+      xlab(paste("Actual", biodiv_index))+
+      ylab(paste("Predicted", biodiv_index))+
+      annotate("text", x= limx[1], y=c(limy, limy *0.96, limy * 0.92, limy * 0.88), label = lab, hjust = 0, parse = T)+
+      ggtitle(paste("Random Forest Result:", biodiv_index))
+
+  }else{
+    rf_plot <- ggplot(data = test_df, aes(x=.outcome, y=predicted, col=traintest))+
+      geom_point(size = 2.5)+
+      #geom_text(check_overlap = T, nudge_y = 1, size = 2.7)+
+      geom_abline(slope = 1)+
+      xlim(limx)+
+      ylim(limx)+
+      xlab(paste("Actual", biodiv_index))+
+      ylab(paste("Predicted", biodiv_index))+
+      annotate("text", x= limx[1], y=c(limy, limy *0.96, limy * 0.92, limy * 0.88), label = lab, hjust = 0, parse = T)+
+      ggtitle(paste("Random Forest Result:", biodiv_index))
+  }
   return(rf_plot)
 }
 
@@ -366,7 +385,7 @@ get_monthly_composite <- function(path, ms){
 }
 
 # stack input rasters to be usable as input for spatial RF
-stack_S2_months <- function(fls, path, ms, filename){
+stack_S2_months <- function(fls, path, filename){
   max_comp <- list()
   setwd(path)
   for (i in 1:length(fls)){
