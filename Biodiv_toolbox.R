@@ -1,7 +1,7 @@
 # All Functions for Biodiversity Random Forest Implementation
 
 # get Reflectances ----
-hd <- "E"
+hd <- "G"
 setwd(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data"))
 library(readxl)
 library(openxlsx)

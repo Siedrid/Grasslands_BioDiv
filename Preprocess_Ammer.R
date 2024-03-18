@@ -74,7 +74,7 @@ for (i in 1:length(fls)){
 }
 df <- na.omit(df1)
 df$X <- as.Date(df$X, "%Y-%m-%d")
-max_df <- comp_max(df, date.column = "X")
+max_df <- comp_max(df, date.column = "X", max)
 
 # check if all plots have all months
 result <- max_df %>%
@@ -105,11 +105,11 @@ div_df <- div_df[-c(1)]
 ammer_div_df <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Biodiv-indices_Ammer.csv"))
 # Diversity indices only for 10 plots - right?
 
-biodiv <- "shannon"
+biodiv <- "specn"
 ammer.plots <- ammer_div_df$plot_names
 rf_data_ammer <- preprocess_rf_data(data_frame.ammer, ammer_div_df, biodiv)
 
-predictors <- gsub("-", ".", m.RF) %>% gsub("2019", "2022", .) %>% gsub("2020", "2023", .)
+predictors <- colnames(data_frame.ammer) %>% gsub("2019", "2022", .) %>% gsub("2020", "2023", .)
 data_frame.ammermonths <- RF_predictors(data_frame, predictors)
 rf_data <- preprocess_rf_data(data_frame.ammermonths, div_df, biodiv)
 BT.plots <- rownames(rf_data)

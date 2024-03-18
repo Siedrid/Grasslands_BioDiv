@@ -139,7 +139,7 @@ mask.grasslands <- function(s2_pred.rast, grass.mask){
 comp_path <- paste0(hd, ":/Grasslands_BioDiv/Data/S2_min_composites/")
 
 indx <- "specn"
-hd <- "E"
+hd <- "G"
 plt.path <- paste0(hd, ":/Grasslands_BioDiv/Out/Graphs/finalPlots_präsi/")
 
 data_frame <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Reflectance_2022-23_monthly_pivot.csv"))
@@ -155,12 +155,15 @@ rf_data <- preprocess_rf_data(data_frame.nowinter, div_df, "specn")
 train_index <- get_train_index(rf_data, s)
 forest <- RF(rf_data, train_index, s)
 print(forest)
-png("E:/Grasslands_BioDiv/Out/RF_Results/nowinter_RF_spatial.png")
-summarize.RF(forest, rf_data, div_df,train_index, "specn")
+png(paste0(plt.path, "nowinter_RF_spatial.png"))
+rf <- summarize.RF(forest, rf_data, div_df,train_index, "specn")
+ggsave(paste0(plt.path, "nowinter_RF_spatial.png"), plot = rf, width = 8, height = 8)
 dev.off()
 write.RF("nowinter (March to September)", "specn", forest, s, csv.path)
-png("E:/Grasslands_BioDiv/Out/RF_Results/nowinter_varimp_spatial.png")
-plot.varimp(forest)
+png(paste0(plt.path, "nowinter_varimp_spatial.png"))
+varimp <- plot.varimp(forest)
+ggsave(paste0(plt.path, "nowinter_varimp_spatial.png"), plot = varimp, width = 8, height = 8)
+
 dev.off()
 
 # prepare raster stack / brick

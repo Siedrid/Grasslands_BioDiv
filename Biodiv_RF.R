@@ -16,7 +16,7 @@ library(tidyr)
 
 
 indx <- "specn"
-hd <- "E"
+hd <- "G"
 plt.path <- paste0(hd, ":/Grasslands_BioDiv/Out/Graphs/finalPlots_präsi/")
 data_frame <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Reflectance_2022-23_monthly_pivot.csv"))
 div_df <- read.csv(paste0(hd, ":/Grasslands_BioDiv/Data/Field_Data/Biodiv-indices.csv"))
@@ -117,11 +117,8 @@ for (indx in biodiv_indx){
   assign(indx, summarize.RF(forest, rf_data, div_df, train_index, indx, plot_labels = F))
 }
 forest
-png(paste0(plt.path,"RF-vgl-indices_v1.png"),width = 8, height = 10, units = "in", res = 1200)
-ggarrange(specn,
-          ggarrange(shannon, simpson, ncol = 2, labels = c("B", "C")),
-          nrow=2,
-          labels = 'A')
+png(paste0(plt.path,"RF-vgl-indices_v2.png"),width = 15, height = 8, units = "in", res = 1200)
+ggarrange(specn, shannon, simpson, ncol = 3, labels = c("A", "B", "C"))
 dev.off()
 
 # complete Ammer Data 13.02.----
@@ -184,7 +181,7 @@ df.season <- RF_predictors(df.piv, c("04", "05", "06", "07", "08", "09", "10"))
 
 # Franken with Mowing Data ----
 
-s <- 2
+s <- 10
 data_frame.nowinter <- RF_predictors(data_frame, c("03$", "04$", "05$", "06$","07$", "08$", "09$"))
 
 data_frame.nowinter$plot_names <- fix.plotnames(data_frame.nowinter$plot_names)
@@ -196,16 +193,16 @@ df.merged <- merge(df.merged, df_medfirstcut, by = "plot_names")
 
 df.mowcut <- merge(df_mowfreq, df_medfirstcut, by = "plot_names") #only Mowing Frequency and Median DOY of first cut
 
-rf_data <- preprocess_rf_data(df.merged, div_df, "specn") %>% na.omit()
+rf_data <- preprocess_rf_data(df.mowcut, div_df, "specn") %>% na.omit()
 train_index <- get_train_index(rf_data, s)
 forest <- RF(rf_data, train_index, s)
 print(forest)
 RFplot <- summarize.RF(forest, rf_data, div_df,train_index, "specn")
-ggsave(paste0("G:/Grasslands_BioDiv/Out/RF_Results/Refl_mowing_data_RF-", s, ".png"), plot = RFplot,
+ggsave(paste0("G:/Grasslands_BioDiv/Out/RF_Results/Mowing_data_RF-", s, ".png"), plot = RFplot,
        width = 6, height = 6, units = "in")
 write.RF("no Winter with Mowing Frequency and Median DOY of first cut", "specn", forest, s, csv.path)
 varimpplot <- plot.varimp(forest)      
-ggsave(paste0("G:/Grasslands_BioDiv/Out/RF_Results/Refl_mowing_data_varimp-", s, ".png"), plot = varimpplot,
+ggsave(paste0("G:/Grasslands_BioDiv/Out/RF_Results/Mowing_data_varimp-", s, ".png"), plot = varimpplot,
        width = 6, height = 6, units = "in")
 
 # only Ammer Data ----
